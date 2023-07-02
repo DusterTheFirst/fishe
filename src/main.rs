@@ -1,60 +1,126 @@
-use macroquad::prelude::*;
-use std::fmt::Write;
-
-#[macroquad::main("fishe")]
+// Entry point for non-wasm
+#[cfg(not(target_arch = "wasm32"))]
+#[tokio::main]
 async fn main() {
-    let mut overlay_text = String::new();
-
-    let mut fps = 0.0;
-    let mut frame_time = 0.0;
-    let alpha = 0.9;
-
-    loop {
-        let current_time = get_time();
-
-        clear_background(BLACK);
-
-        // 3D
-        set_camera(&Camera3D {
-            position: Affine3A::from_rotation_translation(
-                Quat::from_rotation_z(current_time as f32),
-                Vec3::Z * f32::sin(current_time as f32) * 10.0,
-            )
-            .transform_point3(Vec3::new(10.0, 10.0, 0.0)),
-            up: Vec3::Z,
-            target: Vec3::ZERO,
-            projection: Projection::Perspective,
-            ..Default::default()
-        });
-
-        draw_line_3d(Vec3::X * -10.0, Vec3::X * 10.0, RED);
-        draw_line_3d(Vec3::Y * -10.0, Vec3::Y * 10.0, GREEN);
-        draw_line_3d(Vec3::Z * -10.0, Vec3::Z * 10.0, BLUE);
-
-        draw_cube_wires(
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(10.0, 10.0, 10.0),
-            Color::new(0.5, 1.0, 0.5, 1.0),
-        );
-
-        // 2D
-        set_default_camera();
-
-        overlay_text.clear();
-        fps = alpha * fps + (1.0 - alpha) * get_fps() as f32;
-        write!(overlay_text, "FPS: {:.0}", fps).unwrap();
-        draw_text(&overlay_text, 10.0, 20.0, 30.0, WHITE);
-        overlay_text.clear();
-        frame_time = alpha * frame_time + (1.0 - alpha) * get_frame_time() * 1000.0;
-        write!(overlay_text, "Frame Time: {:.1}ms", frame_time).unwrap();
-        draw_text(&overlay_text, 10.0, 50.0, 30.0, WHITE);
-        overlay_text.clear();
-        write!(overlay_text, "Current Time: {:.4}", current_time).unwrap();
-        draw_text(&overlay_text, 10.0, 80.0, 30.0, WHITE);
-        next_frame().await;
-    }
+    run().await;
 }
 
-async fn load_gltf() {
-    let file = load_file("textures/high_detailed_fish/scene.gltf").await;
+use three_d::*;
+
+pub async fn run() {
+    let window = Window::new(WindowSettings {
+        title: "Le Fishe".to_string(),
+        max_size: Some((1280, 720)),
+        ..Default::default()
+    })
+    .unwrap();
+    let context = window.gl();
+
+    let mut camera = Camera::new_perspective(
+        window.viewport(),
+        vec3(10.0, 10.0, 10.0),
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 1.0, 0.0),
+        degrees(45.0),
+        0.0001,
+        10.0,
+    );
+    let mut orbit = OrbitControl::new(vec3(0.0, 0.0, 0.0), 0.0001, 100.0);
+
+    let scene =
+        three_d_asset::io::load_and_deserialize_async("./textures/high_detailed_fish/scene.gltf")
+            .await
+            .unwrap();
+
+    let mut fish = Model::<PhysicalMaterial>::new(&context, &scene).unwrap();
+    fish.iter_mut().for_each(|m| {
+        m.material.render_states.cull = Cull::Back;
+        // m.set_transformation(Mat4::from_angle_x(degrees(-90.0)));
+    });
+
+    let ambient_light = AmbientLight::new(&context, 0.4, Color::WHITE);
+    let mut directional_light = DirectionalLight::new(
+        &context,
+        10.0,
+        Color::new_opaque(204, 178, 127),
+        &vec3(0.0, -1.0, -1.0),
+    );
+    directional_light.generate_shadow_map(1024, &fish);
+    // Bounding boxes
+    let mut aabb = AxisAlignedBoundingBox::EMPTY;
+    let mut bounding_boxes = Vec::new();
+    for geometry in &fish {
+        bounding_boxes.push(Gm::new(
+            BoundingBox::new_with_thickness(&context, geometry.aabb(), 0.5),
+            ColorMaterial {
+                color: Color::RED,
+                ..Default::default()
+            },
+        ));
+        aabb.expand_with_aabb(&geometry.aabb());
+    }
+    bounding_boxes.push(Gm::new(
+        BoundingBox::new_with_thickness(&context, aabb, 3.0),
+        ColorMaterial {
+            color: Color::BLACK,
+            ..Default::default()
+        },
+    ));
+
+    let mut gui = three_d::GUI::new(&context);
+    let mut bounding_box_enabled = false;
+    let mut spin = 0.0;
+    window.render_loop(move |mut frame_input| {
+        let mut panel_width = 0.0;
+        gui.update(
+            &mut frame_input.events,
+            frame_input.accumulated_time,
+            frame_input.viewport,
+            frame_input.device_pixel_ratio,
+            |gui_context| {
+                use three_d::egui::*;
+                SidePanel::left("side_panel").show(gui_context, |ui| {
+                    ui.heading("Debug Panel");
+
+                    ui.checkbox(&mut bounding_box_enabled, "Bounding boxes");
+
+                    ui.add(egui::Slider::new(&mut spin, 0.0..=360.0))
+                });
+                panel_width = gui_context.used_rect().width();
+            },
+        );
+
+        orbit.handle_events(&mut camera, &mut frame_input.events);
+
+        let viewport = Viewport {
+            x: (panel_width as f64 * frame_input.device_pixel_ratio) as i32,
+            y: 0,
+            width: frame_input.viewport.width
+                - (panel_width as f64 * frame_input.device_pixel_ratio) as u32,
+            height: frame_input.viewport.height,
+        };
+        camera.set_viewport(viewport);
+
+        for part in fish.iter_mut() {
+            part.set_transformation(Mat4::from_angle_y(degrees(spin)));
+        }
+
+        // draw
+        frame_input
+            .screen()
+            .clear(ClearState::color_and_depth(0.8, 0.8, 0.7, 1.0, 1.0))
+            .write(|| {
+                for object in fish.into_iter().filter(|o| camera.in_frustum(&o.aabb())) {
+                    object.render(&camera, &[&ambient_light, &directional_light]);
+                }
+                if bounding_box_enabled {
+                    for bounding_box in bounding_boxes.iter() {
+                        bounding_box.render(&camera, &[]);
+                    }
+                }
+                gui.render();
+            });
+
+        FrameOutput::default()
+    });
 }

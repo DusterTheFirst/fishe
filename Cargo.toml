@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[profile.dev.package."*"]
+opt-level = 3
+
 [dependencies]
-gltf = "1.2.0"
-macroquad = { version = "0.3.26", features = ["log-rs"] }
+three-d = { version = "0.15.0", features = ["egui-gui"] }
+three-d-asset = { version = "0.5.0", features = ["gltf", "png"] }
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
