@@ -1,0 +1,9 @@
+[package]
+name = "fishe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+gltf = "1.2.0"
+macroquad = { version = "0.3.26", features = ["log-rs"] }
