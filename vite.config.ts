@@ -5,4 +5,7 @@ export default defineConfig({
     build: {
         chunkSizeWarningLimit: 600,
     },
+    server: {
+        hmr: false
+    }
 });

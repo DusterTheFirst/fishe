@@ -1,0 +1,6 @@
+{
+    "[html]": {
+        "editor.tabSize": 2,
+        "editor.defaultFormatter": "vscode.html-language-features"
+    }
+}
