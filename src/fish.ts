@@ -84,6 +84,7 @@ export class Fish {
 
     private _animate(milliseconds: DOMHighResTimeStamp) {
         const seconds = milliseconds * 0.001;
+        void seconds; // FIXME: actually use delta time
         // console.dir(seconds);
 
         this.fish.rotateY(Math.PI / 48.0);
