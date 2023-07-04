@@ -27,16 +27,28 @@ pub async fn run() {
     );
     let mut orbit = OrbitControl::new(vec3(0.0, 0.0, 0.0), 0.0001, 100.0);
 
-    let scene =
+    let mut scene: CpuModel =
         three_d_asset::io::load_and_deserialize_async("./textures/high_detailed_fish/scene.gltf")
             .await
             .unwrap();
+    // dbg!(&scene.name);
+    // dbg!(&scene.materials);
 
-    let mut fish = Model::<PhysicalMaterial>::new(&context, &scene).unwrap();
-    fish.iter_mut().for_each(|m| {
-        m.material.render_states.cull = Cull::Back;
-        // m.set_transformation(Mat4::from_angle_x(degrees(-90.0)));
-    });
+    scene
+        .geometries
+        .iter_mut()
+        .for_each(|g| g.compute_tangents());
+
+    let mut fish = Model::<PhysicalMaterial>::new(&context, &scene)
+        .unwrap()
+        .remove(0);
+
+    dbg!(fish.material.albedo);
+    dbg!(fish.material.albedo_texture.is_some());
+    // fish.iter_mut().for_each(|m| {
+    //     m.material.render_states.cull = Cull::Back;
+    //     // m.set_transformation(Mat4::from_angle_x(degrees(-90.0)));
+    // });
 
     let ambient_light = AmbientLight::new(&context, 0.4, Color::WHITE);
     let mut directional_light = DirectionalLight::new(
@@ -101,14 +113,14 @@ pub async fn run() {
         };
         camera.set_viewport(viewport);
 
-        for part in fish.iter_mut() {
-            part.set_transformation(Mat4::from_angle_y(degrees(spin)));
-        }
+        // for part in fish.iter_mut() {
+            fish.set_transformation(Mat4::from_angle_y(degrees(spin)));
+        // }
 
         // draw
         frame_input
             .screen()
-            .clear(ClearState::color_and_depth(0.8, 0.8, 0.7, 1.0, 1.0))
+            .clear(ClearState::color_and_depth(0.5, 0.6, 0.7, 1.0, 1.0))
             .write(|| {
                 for object in fish.into_iter().filter(|o| camera.in_frustum(&o.aabb())) {
                     object.render(&camera, &[&ambient_light, &directional_light]);
