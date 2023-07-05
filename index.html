@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="src/style.css">
+    <link rel="stylesheet" href="src/style.css" />
     <script type="module" src="src/main.ts"></script>
     <title>Le Fishe</title>
   </head>
@@ -22,6 +22,29 @@
       </div>
       <div class="page">
         <canvas id="canvas"></canvas>
+
+        <div class="overlay">
+          <div class="settings">
+            <label for="crunch"> Crunchiness </label>
+            <input
+              type="range"
+              id="crunch"
+              min="1"
+              max="100"
+              step="1"
+              value="50"
+            />
+            <label for="bpm"> BPM </label>
+            <input
+              type="number"
+              id="bpm"
+              min="1"
+              max="400"
+              step="1"
+              value="120"
+            />
+          </div>
+        </div>
       </div>
     </div>
   </body>
