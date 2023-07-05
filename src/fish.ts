@@ -10,6 +10,8 @@ export class Fish {
   private scene: THREE.Scene;
   private renderer: THREE.WebGLRenderer;
 
+  private wake_lock: WakeLockSentinel | null = null;
+
   private _running: boolean = false;
 
   get running() {
@@ -75,6 +77,20 @@ export class Fish {
     if (!this._running) {
       requestAnimationFrame(this.animate);
 
+      if (navigator.wakeLock) {
+        navigator.wakeLock
+          .request("screen")
+          .then((wake_lock) => {
+            this.wake_lock = wake_lock;
+            console.info("Wake Lock is active!");
+          })
+          .catch((err) => {
+            const error = err as Error;
+            // The Wake Lock request has failed - usually system related, such as battery.
+            console.warn(`${error.name}, ${error.message}`);
+          });
+      }
+
       this._running = true;
       return true;
     }
@@ -83,6 +99,12 @@ export class Fish {
   }
 
   public stop() {
+    if (this.wake_lock !== null) {
+      this.wake_lock.release().then(() => {
+        this.wake_lock = null;
+      });
+    }
+
     const previous_running = this._running;
 
     this._running = false;

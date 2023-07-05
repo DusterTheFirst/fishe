@@ -41,4 +41,21 @@ window.addEventListener("DOMContentLoaded", () => {
       fish.start();
     }
   });
+
+  document.addEventListener("visibilitychange", async () => {
+    if (fish !== null) {
+      switch (document.visibilityState) {
+        case "hidden": {
+          fish.stop();
+
+          break;
+        }
+        case "visible": {
+          fish.start();
+
+          break;
+        }
+      }
+    }
+  });
 });
