@@ -12,8 +12,6 @@ export class Fish extends THREE.EventDispatcher<FishEvent> {
   private scene: THREE.Scene;
   private renderer: THREE.WebGLRenderer;
 
-  private wake_lock: WakeLockSentinel | null = null;
-
   private _running: boolean = false;
 
   get running() {

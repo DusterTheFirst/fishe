@@ -25,4 +25,5 @@ export async function login() {
   const currently_playing = await client.player.getCurrentlyPlayingTrack();
   console.log(currently_playing);
   const analysis = await client.tracks.audioAnalysis(currently_playing.item.id);
+  console.dir(analysis);
 }
