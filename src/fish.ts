@@ -3,7 +3,9 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 import fish_glb from "../textures/high_detailed_fish/fish.glb";
 
-export class Fish {
+export type FishEvent = { type: "started" } | { type: "stopped" };
+
+export class Fish extends THREE.EventDispatcher<FishEvent> {
   private fish: THREE.Object3D;
   private light: THREE.Object3D;
   private camera: THREE.PerspectiveCamera;
@@ -31,6 +33,8 @@ export class Fish {
   public bpm: number = 120;
 
   private constructor(fish: THREE.Object3D, canvas: HTMLCanvasElement) {
+    super();
+
     this.fish = fish;
     this.light = new THREE.AmbientLight(new THREE.Color(0xffffff), 1.0);
     this.camera = (() => {
@@ -73,23 +77,14 @@ export class Fish {
     return new Fish(fish, canvas);
   }
 
-  public start() {
+  /**
+   * @returns Weather the call affected the state of the fish
+   */
+  public start(): boolean {
     if (!this._running) {
       requestAnimationFrame(this.animate);
 
-      if (navigator.wakeLock) {
-        navigator.wakeLock
-          .request("screen")
-          .then((wake_lock) => {
-            this.wake_lock = wake_lock;
-            console.info("Wake Lock is active!");
-          })
-          .catch((err) => {
-            const error = err as Error;
-            // The Wake Lock request has failed - usually system related, such as battery.
-            console.warn(`${error.name}, ${error.message}`);
-          });
-      }
+      this.dispatchEvent({ type: "started" });
 
       this._running = true;
       return true;
@@ -98,29 +93,37 @@ export class Fish {
     return false;
   }
 
-  public stop() {
-    if (this.wake_lock !== null) {
-      this.wake_lock.release().then(() => {
-        this.wake_lock = null;
-      });
-    }
-
+  /**
+   * @returns Weather the call affected the state of the fish
+   */
+  public stop(): boolean {
     const previous_running = this._running;
 
-    this._running = false;
+    if (!previous_running) {
+      this.dispatchEvent({ type: "stopped" });
 
-    return previous_running;
+      this._running = false;
+
+      return true;
+    }
+
+    return false;
   }
 
   private get animate() {
     return this._animate.bind(this);
   }
 
+  private last_animate: number = 0;
+
   private _animate(milliseconds: DOMHighResTimeStamp) {
     const seconds = milliseconds * 0.001;
+    const delta_time = seconds - this.last_animate;
+    this.last_animate = seconds;
 
-    this.fish.rotation.y =
-      (-Math.PI * 2 * (this.bpm / 60) * seconds) % (Math.PI * 2);
+    const rotational_velocity = this.bpm / 60 / 2;
+    this.fish.rotation.y -=
+      (Math.PI * 2 * rotational_velocity * delta_time) % (Math.PI * 2);
 
     // Actually do the render
     const canvas = this.renderer.domElement;
